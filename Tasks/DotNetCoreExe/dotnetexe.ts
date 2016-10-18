@@ -102,18 +102,74 @@ export class dotNetExe {
     private updateOutputArgument(): void {
         this.outputArgument = this.remainingArgument = "";
         if (this.command === "publish" && this.arguments) {
-            // TODO:: Fix this.
-            var options = minimist(this.arguments.split(" "));
-
-            for (var option in options) {
-                if (option === "o" || option === "output") {
-                    this.outputArgument = options[option];
+            this.arguments = this.arguments.trim();
+            var i = 0;
+            var isOutputOption = false;
+            while (i < this.arguments.length) {
+                var nextIndex = this.getNextTokenIndex(this.arguments, i);
+                var token = this.arguments.substr(i, nextIndex - i).trim();
+                var tokenUpper = token.toUpperCase();
+                if (isOutputOption) {
+                    this.outputArgument = token;
+                    isOutputOption = false;
                 }
-                else if(option !== "_") {
-                    this.remainingArgument += "--" + option + ' ' + options[option];
+                else if (tokenUpper === "--OUTPUT" || tokenUpper === "-O") {
+                    isOutputOption = true;
+                }
+                else {
+                    this.remainingArgument += (" " + token);
+                }
+
+                i = nextIndex;
+            }
+        }
+    }
+
+    private getNextTokenIndex (input, currentPosition): number {
+        for(; currentPosition < input.length; currentPosition++)
+        {
+            if(input[currentPosition] == " " || input[currentPosition] == "\t") {
+                for(; currentPosition < input.length; currentPosition++) {
+                    if(input[currentPosition + 1] != " " && input[currentPosition + 1] != "\t") {
+                        break;
+                    }
+                }
+
+                break;
+            }
+            else if(input[currentPosition] === "\"") {
+                currentPosition = this.findClosingQuoteIndex(input, currentPosition + 1, "\"");
+            }
+            else if(input[currentPosition] === "'") {
+                //keep going till this one closes
+                currentPosition = this.findClosingQuoteIndex(input, currentPosition + 1, "'");
+            }
+            else if(input[currentPosition] === "\\") {
+                currentPosition++; 
+                if(currentPosition >= input.length) {
+                    break;
                 }
             }
         }
+                                              
+        return currentPosition;
+    }
+
+    private findClosingQuoteIndex (input, currentPosition, closingQuote): number {
+        for(; currentPosition < input.length; currentPosition++) {
+            if(input[currentPosition] === closingQuote)
+            {
+                break;
+            }
+            else if(input[currentPosition] === "\\") {
+                currentPosition++;
+                if(currentPosition >= input.length) {
+                    break;
+                }
+            }
+        }
+
+        return currentPosition;
     }
 
      private getWebProjects(): string [] {
