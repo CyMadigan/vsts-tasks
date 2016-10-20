@@ -4,7 +4,6 @@ import fs = require("fs");
 import ffl = require('find-files-legacy/findfiles.legacy');
 var gulp = require('gulp');
 var zip = require('gulp-zip');
-var minimist = require('minimist');
 
 export class dotNetExe {
     private command: string;
@@ -189,4 +188,4 @@ export class dotNetExe {
 }
 
 var exe = new dotNetExe();
-exe.execute();
+exe.execute().catch((reason) => tl.setResult(1, reason));
