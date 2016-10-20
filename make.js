@@ -346,24 +346,7 @@ target.testLegacy = function() {
 }
 
 target.package = function() {
-    // clean
-    rm('-Rf', packagePath);
-
-    console.log('> Staging content for individual task zips');
-    var individualZipStagingPath = path.join(packagePath, 'individual-zip-staging');
-    util.stageTaskZipContent(buildPath, individualZipStagingPath, /*metadataOnly*/false);
-
-    console.log();
-    console.log('> Staging metadata for wrapper zip');
-    var wrapperZipStagingPath = path.join(packagePath, 'wrapper-zip-staging');
-    util.stageTaskZipContent(buildPath, wrapperZipStagingPath, /*metadataOnly*/true);
-
-    // mark the layout with a version number. servicing needs to support both this new format
-    // and the original layout format as well.
-    fs.writeFileSync(path.join(wrapperZipStagingPath, 'layout-version.txt'), '2');
-
-    // create the tasks zip
-    var zipPath = path.join(packagePath, 'pack-source', 'contents', 'Microsoft.TeamFoundation.Build.Tasks.zip');
+    // validate powershell 5
     ensureTool('powershell.exe',
         '-NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "$PSVersionTable.PSVersion.Major"',
         function (output) {
@@ -371,7 +354,35 @@ target.package = function() {
                 fail('expected version 5 or higher');
             }
         });
-    run(`powershell.exe -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& '${path.join(__dirname, 'Compress-Tasks.ps1')}' -IndividualZipStagingPath '${individualZipStagingPath}' -WrapperZipStagingPath '${wrapperZipStagingPath}' -ZipPath '${zipPath}'"`, /*echo:*/true);
+
+    // clean
+    rm('-Rf', packagePath);
+
+    // build the layout for the nested task zips
+    console.log('> Staging content for nested task zips');
+    var nestedZipsContentPath = path.join(packagePath, 'nested-zips-content');
+    util.stageNonAggregatedLayoutContent(buildPath, nestedZipsContentPath, /*metadataOnly*/false);
+
+    // create the nested task zips
+    console.log();
+    console.log('> Creating nested task zips (staging content for non-aggregated zip)');
+    var nonAggregatedZipContentPath = path.join(packagePath, 'non-aggregated-zip-content');
+    run(`powershell.exe -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& '${path.join(__dirname, 'Compress-Tasks.ps1')}' -SourceRoot '${nestedZipsContentPath}' -TargetPath '${nonAggregatedZipContentPath}' -Individually"`, /*echo:*/true);
+
+    // finish building the layout for the non-aggregated tasks zip
+    console.log();
+    console.log('> Staging metadata content for non-aggregated zip');
+    util.stageNonAggregatedLayoutContent(buildPath, nonAggregatedZipContentPath, /*metadataOnly*/true);
+
+    // mark the layout with a version number.
+    // servicing supports both this new format and the legacy layout format as well.
+    fs.writeFileSync(path.join(wrapperZipStagingPath, 'layout-version.txt'), '2');
+
+    // create
+
+    // // create the tasks zip
+    // run(`powershell.exe -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command "& '${path.join(__dirname, 'Compress-Tasks.ps1')}' -SourceRoot '${nestedZipsContentPath}' -TargetPath '${nonAggregatedZipContentPath}' -Individually"`, /*echo:*/true);
+    // var zipPath = path.join(packagePath, 'pack-source', 'contents', 'Microsoft.TeamFoundation.Build.Tasks.zip');
 
     // nuspec
     var version = options.version;
@@ -412,6 +423,25 @@ target.package = function() {
 target.publish = function() {
     var server = options.server;
     assert(server, 'server');
+
+/*
+    var branch = run('git symbolic-ref HEAD');
+    if ()
+    // get current commit:
+    //  git rev-parse --short=8 HEAD
+    //  e20da768
+    //
+    // get current branch:
+    //  CI:
+    //      $env:BUILD_SOURCEBRANCH or $env:BUILD_SOURCEBRANCHNAME (refs/heads/master or master)
+    //  local:
+    //      git symbolic-ref HEAD
+    //      refs/heads/users/ersciple/m108lock
+    //
+    // get remote branch commit:
+    //  git rev-parse --short=8 refs/remotes/origin/master
+    //  e20da768
+*/
 
     // resolve the nupkg path
     var nupkgFile;

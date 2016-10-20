@@ -246,8 +246,9 @@ var run = function (cl, echo) {
         stdio: echo ? 'inherit' : 'pipe'
     };
     var rc = 0;
+    var output;
     try {
-        ncp.execSync(cl, options);
+        output = ncp.execSync(cl, options);
     }
     catch (err) {
         if (!echo) {
@@ -256,6 +257,8 @@ var run = function (cl, echo) {
 
         process.exit(1);
     }
+
+    return output.toString().trim();
 }
 exports.run = run;
 
@@ -645,27 +648,28 @@ exports.validateTask = validateTask;
 //------------------------------------------------------------------------------
 // package functions
 //------------------------------------------------------------------------------
-var stageTaskZipContent = function (sourceRoot, destRoot, metadataOnly) {
+var stageNonAggregatedLayoutContent = function (sourceRoot, destRoot, metadataOnly) {
     var metadataFileNames = [ 'TASK.JSON', 'TASK.LOC.JSON', 'STRINGS', 'ICON.PNG' ];
+    // process each file/folder within the source root
     fs.readdirSync(sourceRoot).forEach(function (itemName) {
         var taskSourcePath = path.join(sourceRoot, itemName);
         var taskDestPath = path.join(destRoot, itemName);
 
-        // skip Common and skip files
+        // skip the Common folder and skip files
         if (itemName == 'Common' || !fs.statSync(taskSourcePath).isDirectory()) {
             return;
         }
 
         mkdir('-p', taskDestPath);
 
-        // process each file/folder within the task
+        // process each file/folder within each task folder
         fs.readdirSync(taskSourcePath).forEach(function (itemName) {
             // skip the Tests folder
             if (itemName == 'Tests') {
                 return;
             }
 
-            // skip if metadataOnly and not a metadata item
+            // when metadataOnly=true, skip non-metadata items
             if (metadataOnly && metadataFileNames.indexOf(itemName.toUpperCase()) < 0) {
                 return;
             }
@@ -682,5 +686,5 @@ var stageTaskZipContent = function (sourceRoot, destRoot, metadataOnly) {
         });
     });
 }
-exports.stageTaskZipContent = stageTaskZipContent;
+exports.stageNonAggregatedLayoutContent = stageNonAggregatedLayoutContent;
 //------------------------------------------------------------------------------
